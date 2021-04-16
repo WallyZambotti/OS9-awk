@@ -19,7 +19,7 @@ extern char	**FILENAME;
 extern char	record[];
 extern int	dbg;
 extern int	lineno;
-extern int	errorflag;
+extern int	errorflg;
 extern int	donefld;	/* 1 if record broken into fields */
 extern int	donerec;	/* 1 if record is valid (no fld has changed */
 
@@ -31,7 +31,7 @@ typedef struct val {	/* general value during processing */
 	struct val	*nextval;	/* ptr to next if chained */
 } cell;
 extern cell *symtab[];
-cell	*setsymtab(), *lookup(), **makesymtab();
+cell	*stsymtab(), *lookup(), **mksymtab();
 
 extern cell	*recloc;	/* location of input record */
 extern cell	*nrloc;		/* NR */
@@ -59,7 +59,17 @@ typedef struct {
 	char otype;
 	char osub;
 	cell *optr;
-} obj;
+} obj; /* 8 bytes on Linux 32 bit. 4 bytes on OS9 16 bit */
+
+/* typedef ... lobj length must match sizeof(obj) which differs between UNIX and OS9 */
+#ifdef UNIX
+typedef unsigned long long lobj; /* Use this on Linux 32 bit */
+#else
+typedef unsigned long lobj; /* Use this on OS9 16 bit */
+#endif
+
+#define LNG2OBJ(x) (*(obj*)&x)
+#define OBJ2LNG(x) (*(lobj*)&x)
 
 #define BOTCH	1
 struct nd {
@@ -102,7 +112,7 @@ extern node	*nullstat;
 #define NEXPR	3
 #define NPA2	4
 
-extern obj	(*proctab[])();
+extern lobj	(*proctab[])();
 extern obj	true, false;
 extern int	pairstack[], paircnt;
 
@@ -119,8 +129,8 @@ extern int	pairstack[], paircnt;
 #define istemp(n)	(n.otype == OCELL && n.osub == CTEMP)
 #define isfld(n)	(!donefld && n.osub==CFLD && n.otype==OCELL && n.optr->nval==0)
 #define isrec(n)	(donefld && n.osub==CFLD && n.otype==OCELL && n.optr->nval!=0)
-obj	nullproc();
-obj	relop();
+lobj	nullproc();
+lobj	relop();
 
 #define MAXSYM	16
 #define	HAT	0177	/* matches ^ in regular expr */

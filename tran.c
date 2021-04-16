@@ -1,4 +1,4 @@
-#include "stdio.h"
+#include <stdio.h>
 #include "awk.def"
 #include "awk.h"
 
@@ -19,35 +19,35 @@ cell	*nfloc;		/* NF */
 
 syminit()
 {
-	setsymtab("0", tostring("0"), 0.0, NUM|STR|CON|FLD, symtab);
-	recloc = setsymtab("$record", record, 0.0, STR|FLD, symtab);
+	stsymtab("0", tostring("0"), 0.0, NUM|STR|CON|FLD, symtab);
+	recloc = stsymtab("$record", record, 0.0, STR|FLD, symtab);
 	dprintf("recloc %o lookup %o\n", recloc, lookup("$record", symtab), NULL);
-	FS = &setsymtab("FS", tostring(" "), 0.0, STR|FLD, symtab)->sval;
-	RS = &setsymtab("RS", tostring("\n"), 0.0, STR|FLD, symtab)->sval;
-	OFS = &setsymtab("OFS", tostring(" "), 0.0, STR|FLD, symtab)->sval;
-	ORS = &setsymtab("ORS", tostring("\n"), 0.0, STR|FLD, symtab)->sval;
-	OFMT = &setsymtab("OFMT", tostring("%.6g"), 0.0, STR|FLD, symtab)->sval;
-	FILENAME = &setsymtab("FILENAME", NULL, 0.0, STR|FLD, symtab)->sval;
-	nfloc = setsymtab("NF", NULL, 0.0, NUM, symtab);
+	FS = &stsymtab("FS", tostring(" "), 0.0, STR|FLD, symtab)->sval;
+	RS = &stsymtab("RS", tostring("\n"), 0.0, STR|FLD, symtab)->sval;
+	OFS = &stsymtab("OFS", tostring(" "), 0.0, STR|FLD, symtab)->sval;
+	ORS = &stsymtab("ORS", tostring("\n"), 0.0, STR|FLD, symtab)->sval;
+	OFMT = &stsymtab("OFMT", tostring("%.6g"), 0.0, STR|FLD, symtab)->sval;
+	FILENAME = &stsymtab("FILENAME", NULL, 0.0, STR|FLD, symtab)->sval;
+	nfloc = stsymtab("NF", NULL, 0.0, NUM, symtab);
 	NF = &nfloc->fval;
-	nrloc = setsymtab("NR", NULL, 0.0, NUM, symtab);
+	nrloc = stsymtab("NR", NULL, 0.0, NUM, symtab);
 	NR = &nrloc->fval;
 }
 
-cell **makesymtab()
+cell **mksymtab()
 {
 	int i;
 	cell **cp;
 
 	cp = (char *) malloc(MAXSYM * sizeof(cell *));
 	if (cp == NULL)
-		error(FATAL, "out of space in makesymtab");
+		error(FATAL, "out of space in mksymtab");
 	for (i = 0; i < MAXSYM; i++)
 		*((cell **) cp + i) = 0;
 	return(cp);
 }
 
-freesymtab(ap)	/* free symbol table */
+frsymtab(ap)	/* free symbol table */
 cell *ap;
 {
 	cell *cp, **tp;
@@ -66,7 +66,7 @@ cell *ap;
 	xfree(tp);
 }
 
-cell *setsymtab(n, s, f, t, tab)
+cell *stsymtab(n, s, f, t, tab)
 char *n, *s;
 awkfloat f;
 unsigned t;
@@ -78,7 +78,7 @@ cell **tab;
 
 	if (n != NULL && (p = lookup(n, tab)) != NULL) {
 		xfree(s);
-		dprintf("setsymtab found %o: %s", p, p->nval, NULL);
+		dprintf("stsymtab found %o: %s", p, p->nval, NULL);
 		dprintf(" %s %g %o\n", p->sval, p->fval, p->tval);
 		return(p);
 	}
@@ -92,7 +92,7 @@ cell **tab;
 	h = hash(n);
 	p->nextval = tab[h];
 	tab[h] = p;
-	dprintf("setsymtab set %o: %s", p, p->nval, NULL);
+	dprintf("stsymtab set %o: %s", p, p->nval, NULL);
 	dprintf(" %s %g %o\n", p->sval, p->fval, p->tval);
 	return(p);
 }

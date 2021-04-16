@@ -9,4 +9,3 @@ e token.c
 -r temp
 w token.c
 q
-

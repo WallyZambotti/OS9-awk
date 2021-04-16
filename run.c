@@ -1,8 +1,8 @@
+#include <stdio.h>
 #include "awk.def"
-#include	"math.h"
-#define RECSIZE 512
+#include	<math.h>
+#define RECSIZE 256 /* 512 CoCo mem fix */
 #include "awk.h"
-#include "stdio.h"
 
 #define FILENUM	10
 struct
@@ -12,30 +12,42 @@ struct
 } files[FILENUM];
 FILE *popen();
 
-extern obj execute(), nodetoobj(), fieldel(), dopa2();
-#define PA2NUM	29
-int pairstack[PA2NUM], paircnt;
+extern lobj execute(), nodetoobj(), fieldel(), dopa2(), program();
+#define PA2NUM	24 /* 29 CoCo mem fix */
+int pairstack[PA2NUM], paircnt=0;
 node *winner = (node *)NULL;
-#define MAXTMP 20
+#define MAXTMP 16 /* 20  CoCo mem fix */
 cell tmps[MAXTMP];
 static cell nullval ={0,0,0.0,NUM,0};
 obj	true	={ OBOOL, BTRUE, 0 };
 obj	false	={ OBOOL, BFALSE, 0 };
 
+/*dumpnode(n) node *n;
+{
+	extern char *printname[];
+	fprintf(stderr, "%04x + %d - %s %04x %04x %04x %04x %04x\n", 
+		n, n->nobj-FIRSTTOKEN, printname[n->nobj-FIRSTTOKEN],
+		n->nnext, n->narg[0], n->narg[1]), n->narg[2], n->narg[3];
+}*/
+
 run()
 {
-	return(execute(winner).otype);
+	obj o;
+	OBJ2LNG(o) = execute(winner);
+	return(o.otype);
 }
 
-obj execute(u) node *u;
+lobj execute(u) node *u;
 {
-	register obj (*proc)();
+	lobj (*proc)();
 	obj x;
 	node *a;
-	extern char *printname[];
+	/* extern char *printname[]; */
+
+	/* fprintf(stderr, " - %d\n", u->nobj-FIRSTTOKEN); */
 
 	if (u==(node *)NULL)
-		return(true);
+		return(OBJ2LNG(true));
 	for (a = u; ; a = a->nnext) {
 		if (cantexec(a))
 			return(nodetoobj(a));
@@ -46,30 +58,30 @@ obj execute(u) node *u;
 				error(FATAL, "illegal statement %o", a);
 			proc = proctab[a->nobj-FIRSTTOKEN];
 		}
-		x = (*proc)(a->narg,a->nobj);
+		/*dumpnode(a);*/
+		OBJ2LNG(x) = (*proc)(a->narg,a->nobj);
 		if (isfld(x)) fldbld();
-		if (isexpr(a))
-			return(x);
+		if (isexpr(a))  
+			return(OBJ2LNG(x));
 		/* a statement, goto next statement */
 		if (isjump(x))
-			return(x);
+			return(OBJ2LNG(x));
 		if (a->nnext == (node *)NULL)
-			return(x);
-		tempfree(x);
+			return(OBJ2LNG(x));
+		tempfree(OBJ2LNG(x));
 	}
 }
 
-obj program(a, n) node **a;
+lobj program(a, n) node **a;
 {
 	obj x;
-
 	if (a[0] != NULL) {
-		x = execute(a[0]);
+		OBJ2LNG(x) = execute(a[0]);
 		if (isexit(x))
-			return(true);
+			return(OBJ2LNG(true));
 		if (isjump(x))
 			error(FATAL, "unexpected break, continue or next");
-		tempfree(x);
+		tempfree(OBJ2LNG(x));
 	}
 	while (getrec()) {
 		recloc->tval &= ~NUM;
@@ -77,37 +89,38 @@ obj program(a, n) node **a;
 		++nrloc->fval;
 		nrloc->tval &= ~STR;
 		nrloc->tval |= NUM;
-		x = execute(a[1]);
+		OBJ2LNG(x) = execute(a[1]);
 		if (isexit(x)) break;
-		tempfree(x);
+		tempfree(OBJ2LNG(x));
 	}
-	tempfree(x);
+	tempfree(OBJ2LNG(x));
 	if (a[2] != NULL) {
-		x = execute(a[2]);
+		OBJ2LNG(x) = execute(a[2]);
 		if (isbreak(x) || isnext(x) || iscont(x))
 			error(FATAL, "unexpected break, continue or next");
-		tempfree(x);
+		tempfree(OBJ2LNG(x));
 	}
-	return(true);
+	return(OBJ2LNG(true));
 }
 
-obj array(a,n) node **a;
+lobj array(a,n) node **a;
 {
 	obj x, y;
-	extern obj arrayel();
+	extern lobj arrayel();
 
-	x = execute(a[1]);
-	y = arrayel(a[0], x);
-	tempfree(x);
-	return(y);
+	OBJ2LNG(x) = execute(a[1]);
+	OBJ2LNG(y) = arrayel(a[0], OBJ2LNG(x));
+	tempfree(OBJ2LNG(x));
+	return(OBJ2LNG(y));
 }
 
-obj arrayel(a,b) node *a; obj b;
+lobj arrayel(a,_b) node *a; lobj _b;
 {
 	char *s;
 	cell *x;
-	int i;
+	/* int i; */
 	obj y;
+	obj b; OBJ2LNG(b) = _b;
 
 	s = getsval(b.optr);
 	x = (cell *) a;
@@ -115,104 +128,105 @@ obj arrayel(a,b) node *a; obj b;
 		xfree(x->sval);
 		x->tval &= ~STR;
 		x->tval |= ARR;
-		x->sval = (char *) makesymtab();
+		x->sval = (char *) mksymtab();
 	}
-	y.optr = setsymtab(s, tostring(""), 0.0, STR, x->sval);
+	y.optr = stsymtab(s, tostring(""), 0.0, STR, x->sval);
 	y.otype = OCELL;
 	y.osub = CVAR;
-	return(y);
+	return(OBJ2LNG(y));
 }
 
-obj matchop(a,n) node **a;
+lobj matchop(a,n) node **a;
 {
 	obj x;
 	char *s;
 	int i;
 
-	x = execute(a[0]);
+	OBJ2LNG(x) = execute(a[0]);
 	if (isstr(x)) s = x.optr->sval;
 	else	s = getsval(x.optr);
-	tempfree(x);
+	tempfree(OBJ2LNG(x));
 	i = match(a[1], s);
 	if (n==MATCH && i==1 || n==NOTMATCH && i==0)
-		return(true);
+		return(OBJ2LNG(true));
 	else
-		return(false);
+		return(OBJ2LNG(false));
 }
 
-obj boolop(a,n) node **a;
+lobj boolop(a,n) node **a;
 {
 	obj x, y;
 	int i;
 
-	x = execute(a[0]);
+	OBJ2LNG(x) = execute(a[0]);
 	i = istrue(x);
-	tempfree(x);
+	tempfree(OBJ2LNG(x));
 	switch (n) {
 	default:
 		error(FATAL, "unknown boolean operator %d", n);
 	case BOR:
-		if (i) return(true);
-		y = execute(a[1]);
+		if (i) return(OBJ2LNG(true));
+		OBJ2LNG(y) = execute(a[1]);
 		i = istrue(y);
-		tempfree(y);
-		if (i) return(true);
-		else return(false);
+		tempfree(OBJ2LNG(y));
+		if (i) return(OBJ2LNG(true));
+		else return(OBJ2LNG(false));
 	case AND:
-		if ( !i ) return(false);
-		y = execute(a[1]);
+		if ( !i ) return(OBJ2LNG(false));
+		OBJ2LNG(y) = execute(a[1]);
 		i = istrue(y);
-		tempfree(y);
-		if (i) return(true);
-		else return(false);
+		tempfree(OBJ2LNG(y));
+		if (i) return(OBJ2LNG(true));
+		else return(OBJ2LNG(false));
 	case NOT:
-		if (i) return(false);
-		else return(true);
+		if (i) return(OBJ2LNG(false));
+		else return(OBJ2LNG(true));
 	}
 }
 
-obj relop(a,n) node **a;
+lobj relop(a,n) node **a;
 {
 	int i;
 	obj x, y;
 	awkfloat j;
 
-	x = execute(a[0]);
-	y = execute(a[1]);
+	OBJ2LNG(x) = execute(a[0]);
+	OBJ2LNG(y) = execute(a[1]);
 	if (x.optr->tval&NUM && y.optr->tval&NUM) {
 		j = x.optr->fval - y.optr->fval;
 		i = j<0? -1: (j>0? 1: 0);
 	} else {
 		i = strcmp(getsval(x.optr), getsval(y.optr));
 	}
-	tempfree(x);
-	tempfree(y);
+	tempfree(OBJ2LNG(x));
+	tempfree(OBJ2LNG(y));
 	switch (n) {
 	default:
 		error(FATAL, "unknown relational operator %d", n);
-	case LT:	if (i<0) return(true);
-			else return(false);
-	case LE:	if (i<=0) return(true);
-			else return(false);
-	case NE:	if (i!=0) return(true);
-			else return(false);
-	case EQ:	if (i==0) return(true);
-			else return(false);
-	case GE:	if (i>=0) return(true);
-			else return(false);
-	case GT:	if (i>0) return(true);
-			else return(false);
+	case LT:	if (i<0) return(OBJ2LNG(true));
+			else return(OBJ2LNG(false));
+	case LE:	if (i<=0) return(OBJ2LNG(true));
+			else return(OBJ2LNG(false));
+	case NE:	if (i!=0) return(OBJ2LNG(true));
+			else return(OBJ2LNG(false));
+	case EQ:	if (i==0) return(OBJ2LNG(true));
+			else return(OBJ2LNG(false));
+	case GE:	if (i>=0) return(OBJ2LNG(true));
+			else return(OBJ2LNG(false));
+	case GT:	if (i>0) return(OBJ2LNG(true));
+			else return(OBJ2LNG(false));
 	}
 }
 
-tempfree(a) obj a;
+tempfree(_a) lobj _a;
 {
+	obj a; OBJ2LNG(a) = _a;
 	if (!istemp(a)) return;
 	xfree(a.optr->sval);
 	a.optr->tval = 0;
 }
 
-obj gettemp()
+lobj gettemp()
 {
 	int i;
 	obj x;
@@ -223,48 +237,53 @@ obj gettemp()
 	if (i==MAXTMP)
 		error(FATAL, "out of temporaries in gettemp");
 	x.optr = &tmps[i];
-	tmps[i] = nullval;
+	/* tmps[i] = nullval; */
+	tmps[i].nval = 0;
+	tmps[i].sval = 0;
+	tmps[i].fval = 0.0;
+	tmps[i].tval = NUM;
+	tmps[i].nextval = 0;
 	x.otype = OCELL;
 	x.osub = CTEMP;
-	return(x);
+	return(OBJ2LNG(x));
 }
 
-obj indirect(a,n) node **a;
+lobj indirect(a,n) node **a;
 {
 	obj x;
 	int m;
 	cell *fieldadr();
 
-	x = execute(a[0]);
+	OBJ2LNG(x) = execute(a[0]);
 	m = getfval(x.optr);
-	tempfree(x);
+	tempfree(OBJ2LNG(x));
 	x.optr = fieldadr(m);
 	x.otype = OCELL;
 	x.osub = CFLD;
-	return(x);
+	return(OBJ2LNG(x));
 }
 
-obj substr(a, nnn) node **a;
+lobj substr(a, nnn) node **a;
 {
 	char *s, *p, temp[100];
 	obj x;
 	int k, m, n;
 
-	x = execute(a[0]);
+	OBJ2LNG(x) = execute(a[0]);
 	s = getsval(x.optr);
 	k = strlen(s) + 1;
-	tempfree(x);
-	x = execute(a[1]);
+	tempfree(OBJ2LNG(x));
+	OBJ2LNG(x) = execute(a[1]);
 	m = getfval(x.optr);
 	if (m <= 0)
 		m = 1;
 	else if (m > k)
 		m = k;
-	tempfree(x);
+	tempfree(OBJ2LNG(x));
 	if (a[2] != nullstat) {
-		x = execute(a[2]);
+		OBJ2LNG(x) = execute(a[2]);
 		n = getfval(x.optr);
-		tempfree(x);
+		tempfree(OBJ2LNG(x));
 	}
 	else
 		n = k - 1;
@@ -278,34 +297,34 @@ obj substr(a, nnn) node **a;
 	while (n-- > 0)
 		*p++ = *s++;
 	*p = '\0';
-	x = gettemp();
+	OBJ2LNG(x) = gettemp();
 	setsval(x.optr, temp);
-	return(x);
+	return(OBJ2LNG(x));
 }
 
-obj sindex(a, nnn) node **a;
+lobj sindex(a, nnn) node **a;
 {
 	obj x, y;
 	char *s1, *s2, *p1, *p2, *q;
 
-	x = execute(a[0]);
+	OBJ2LNG(x) = execute(a[0]);
 	s1 = getsval(x.optr);
-	tempfree(x);
-	y = execute(a[1]);
+	tempfree(OBJ2LNG(x));
+	OBJ2LNG(y) = execute(a[1]);
 	s2 = getsval(y.optr);
-	tempfree(y);
+	tempfree(OBJ2LNG(y));
 
-	x = gettemp();
+	OBJ2LNG(x) = gettemp();
 	for (p1 = s1; *p1 != '\0'; p1++) {
 		for (q=p1, p2=s2; *p2 != '\0' && *q == *p2; q++, p2++)
 			;
 		if (*p2 == '\0') {
 			setfval(x.optr, (awkfloat) (p1 - s1 + 1));	/* origin 1 */
-			return(x);
+			return(OBJ2LNG(x));
 		}
 	}
 	setfval(x.optr, 0.0);
-	return(x);
+	return(OBJ2LNG(x));
 }
 
 char *format(s,a) char *s; node *a;
@@ -362,7 +381,7 @@ char *format(s,a) char *s; node *a;
 		}
 		if (a == NULL)
 			error(FATAL, "not enough arguments in printf(%s)", os);
-		x = execute(a);
+		OBJ2LNG(x) = execute(a);
 		a = a->nnext;
 		if (flag != 4)	/* watch out for converting to numbers! */
 			xf = getfval(x.optr);
@@ -370,7 +389,7 @@ char *format(s,a) char *s; node *a;
 		else if (flag==2) sprintf(p, fmt, (long)xf);
 		else if (flag==3) sprintf(p, fmt, (int)xf);
 		else if (flag==4) sprintf(p, fmt, x.optr->sval==NULL ? "" : getsval(x.optr));
-		tempfree(x);
+		tempfree(OBJ2LNG(x));
 		p += strlen(p);
 		s++;
 	}
@@ -378,36 +397,36 @@ char *format(s,a) char *s; node *a;
 	return(buf);
 }
 
-obj asprintf(a,n) node **a;
+lobj asprintf(a,n) node **a;
 {
 	obj x;
 	node *y;
 	char *s;
 
 	y = a[0]->nnext;
-	x = execute(a[0]);
+	OBJ2LNG(x) = execute(a[0]);
 	s = format(getsval(x.optr), y);
-	tempfree(x);
-	x = gettemp();
+	tempfree(OBJ2LNG(x));
+	OBJ2LNG(x) = gettemp();
 	x.optr->sval = s;
 	x.optr->tval = STR;
-	return(x);
+	return(OBJ2LNG(x));
 }
 
-obj arith(a,n) node **a;
+lobj arith(a,n) node **a;
 {
 	awkfloat i,j;
 	obj x,y,z;
 
-	x = execute(a[0]);
+	OBJ2LNG(x) = execute(a[0]);
 	i = getfval(x.optr);
-	tempfree(x);
+	tempfree(OBJ2LNG(x));
 	if (n != UMINUS) {
-		y = execute(a[1]);
+		OBJ2LNG(y) = execute(a[1]);
 		j = getfval(y.optr);
-		tempfree(y);
+		tempfree(OBJ2LNG(y));
 	}
-	z = gettemp();
+	OBJ2LNG(z) = gettemp();
 	switch (n) {
 	default:
 		error(FATAL, "illegal arithmetic operator %d", n);
@@ -434,42 +453,42 @@ obj arith(a,n) node **a;
 		setfval(z.optr, -i);
 		break;
 	}
-	return(z);
+	return(OBJ2LNG(z));
 }
 
-obj incrdecr(a, n) node **a;
+lobj incrdecr(a, n) node **a;
 {
 	obj x, z;
 	int k;
 	awkfloat xf;
 
-	x = execute(a[0]);
+	OBJ2LNG(x) = execute(a[0]);
 	xf = getfval(x.optr);
 	k = (n == PREINCR || n == POSTINCR) ? 1 : -1;
 	if (n == PREINCR || n == PREDECR) {
 		setfval(x.optr, xf + k);
-		return(x);
+		return(OBJ2LNG(x));
 	}
-	z = gettemp();
+	OBJ2LNG(z) = gettemp();
 	setfval(z.optr, xf);
 	setfval(x.optr, xf + k);
-	tempfree(x);
-	return(z);
+	tempfree(OBJ2LNG(x));
+	return(OBJ2LNG(z));
 }
 
 
-obj assign(a,n) node **a;
+lobj assign(a,n) node **a;
 {
 	obj x, y;
 	awkfloat xf, yf;
 
-	x = execute(a[0]);
-	y = execute(a[1]);
+	OBJ2LNG(x) = execute(a[0]);
+	OBJ2LNG(y) = execute(a[1]);
 	if (n == ASSIGN) {	/* ordinary assignment */
 		if (y.optr->tval&STR) setsval(x.optr, y.optr->sval);
 		if (y.optr->tval&NUM) setfval(x.optr, y.optr->fval);
-		tempfree(y);
-		return(x);
+		tempfree(OBJ2LNG(y));
+		return(OBJ2LNG(x));
 	}
 	xf = getfval(x.optr);
 	yf = getfval(y.optr);
@@ -497,83 +516,83 @@ obj assign(a,n) node **a;
 		error(FATAL, "illegal assignment operator %d", n);
 		break;
 	}
-	tempfree(y);
-	return(x);
+	tempfree(OBJ2LNG(y));
+	return(OBJ2LNG(x));
 }
 
-obj cat(a,q) node **a;
+lobj cat(a,q) node **a;
 {
 	obj x,y,z;
 	int n;
 	char *s;
 
-	x = execute(a[0]);
-	y = execute(a[1]);
+	OBJ2LNG(x) = execute(a[0]);
+	OBJ2LNG(y) = execute(a[1]);
 	getsval(x.optr);
 	getsval(y.optr);
 	n = strlen(x.optr->sval) + strlen(y.optr->sval);
 	s = (char *)malloc(n+1);
 	strcpy(s, x.optr->sval);
 	strcat(s, y.optr->sval);
-	tempfree(y);
-	z = gettemp();
+	tempfree(OBJ2LNG(y));
+	OBJ2LNG(z) = gettemp();
 	z.optr->sval = s;
 	z.optr->tval = STR;
-	tempfree(x);
-	return(z);
+	tempfree(OBJ2LNG(x));
+	return(OBJ2LNG(z));
 }
 
-obj pastat(a,n) node **a;
+lobj pastat(a,n) node **a;
 {
 	obj x;
 
 	if (a[0]==nullstat)
-		x = true;
+		OBJ2LNG(x )= OBJ2LNG(true);
 	else
-		x = execute(a[0]);
+		OBJ2LNG(x) = execute(a[0]);
 	if (istrue(x)) {
-		tempfree(x);
-		x = execute(a[1]);
+		tempfree(OBJ2LNG(x));
+		OBJ2LNG(x) = execute(a[1]);
 	}
-	return(x);
+	return(OBJ2LNG(x));
 }
 
-obj dopa2(a,n) node **a;
+lobj dopa2(a,n) node **a;
 {
 	obj x;
 
 	if (pairstack[n]==0) {
-		x = execute(a[0]);
+		OBJ2LNG(x) = execute(a[0]);
 		if (istrue(x))
 			pairstack[n] = 1;
-		tempfree(x);
+		tempfree(OBJ2LNG(x));
 	}
 	if (pairstack[n] == 1) {
-		x = execute(a[1]);
+		OBJ2LNG(x) = execute(a[1]);
 		if (istrue(x))
 			pairstack[n] = 0;
-		tempfree(x);
-		x = execute(a[2]);
-		return(x);
+		tempfree(OBJ2LNG(x));
+		OBJ2LNG(x) = execute(a[2]);
+		return(OBJ2LNG(x));
 	}
-	return(false);
+	return(OBJ2LNG(false));
 }
 
-obj aprintf(a,n) node **a;
+lobj aprintf(a,n) node **a;
 {
 	obj x;
 
-	x = asprintf(a,n);
+	OBJ2LNG(x) = asprintf(a,n);
 	if (a[1]==NULL) {
 		printf(x.optr->sval);
-		tempfree(x);
-		return(true);
+		tempfree(OBJ2LNG(x));
+		return(OBJ2LNG(true));
 	}
 	redirprint(x.optr->sval, (int)a[1], a[2]);
-	return(x);
+	return(OBJ2LNG(x));
 }
 
-obj split(a,nnn) node **a;
+lobj split(a,nnn) node **a;
 {
 	obj x;
 	cell *ap;
@@ -582,23 +601,23 @@ obj split(a,nnn) node **a;
 	register int sep;
 	int n;
 
-	x = execute(a[0]);
+	OBJ2LNG(x) = execute(a[0]);
 	s = getsval(x.optr);
-	tempfree(x);
+	tempfree(OBJ2LNG(x));
 	if (a[2] == nullstat)
 		sep = **FS;
 	else {
-		x = execute(a[2]);
+		OBJ2LNG(x) = execute(a[2]);
 		sep = getsval(x.optr)[0];
-		tempfree(x);
+		tempfree(OBJ2LNG(x));
 	}
 	n = 0;
 	ap = (cell *) a[1];
-	freesymtab(ap);
+	frsymtab(ap);
 	dprintf("split: s=|%s|, a=%s, sep=|%c|\n", s, ap->nval, sep);
 	ap->tval &= ~STR;
 	ap->tval |= ARR;
-	ap->sval = (char *) makesymtab();
+	ap->sval = (char *) mksymtab();
 	/* here we go */
 	for (;;) {
 		if (sep == ' ')
@@ -615,76 +634,76 @@ obj split(a,nnn) node **a;
 		*t = '\0';
 		dprintf("n=%d, s=|%s|, temp=|%s|\n", n, s, temp);
 		sprintf(num, "%d", n);
-		setsymtab(num, tostring(temp), 0.0, STR, ap->sval);
+		stsymtab(num, tostring(temp), 0.0, STR, ap->sval);
 		if (*p == '\0')	/* all done */
 			break;
 		s = p + 1;
 	}
-	x = gettemp();
+	OBJ2LNG(x) = gettemp();
 	x.optr->tval = NUM;
 	x.optr->fval = n;
-	return(x);
+	return(OBJ2LNG(x));
 }
 
-obj ifstat(a,n) node **a;
+lobj ifstat(a,n) node **a;
 {
 	obj x;
 
-	x = execute(a[0]);
+	OBJ2LNG(x) = execute(a[0]);
 	if (istrue(x)) {
-		tempfree(x);
-		x = execute(a[1]);
+		tempfree(OBJ2LNG(x));
+		OBJ2LNG(x) = execute(a[1]);
 	}
 	else if (a[2] != nullstat) {
-		tempfree(x);
-		x = execute(a[2]);
+		tempfree(OBJ2LNG(x));
+		OBJ2LNG(x) = execute(a[2]);
 	}
-	return(x);
+	return(OBJ2LNG(x));
 }
 
-obj whilestat(a,n) node **a;
+lobj whilesta(a,n) node **a;
 {
 	obj x;
 
 	for (;;) {
-		x = execute(a[0]);
-		if (!istrue(x)) return(x);
-		tempfree(x);
-		x = execute(a[1]);
+		OBJ2LNG(x) = execute(a[0]);
+		if (!istrue(x)) return(OBJ2LNG(x));
+		tempfree(OBJ2LNG(x));
+		OBJ2LNG(x) = execute(a[1]);
 		if (isbreak(x)) {
-			x = true;
-			return(x);
+			OBJ2LNG(x) = OBJ2LNG(true);
+			return(OBJ2LNG(x));
 		}
 		if (isnext(x) || isexit(x))
-			return(x);
-		tempfree(x);
+			return(OBJ2LNG(x));
+		tempfree(OBJ2LNG(x));
 	}
 }
 
-obj forstat(a,n) node **a;
+lobj forstat(a,n) node **a;
 {
 	obj x;
 
 	tempfree(execute(a[0]));
 	for (;;) {
 		if (a[1]!=nullstat) {
-			x = execute(a[1]);
-			if (!istrue(x)) return(x);
-			else tempfree(x);
+			OBJ2LNG(x) = execute(a[1]);
+			if (!istrue(x)) return(OBJ2LNG(x));
+			else tempfree(OBJ2LNG(x));
 		}
-		x = execute(a[3]);
+		OBJ2LNG(x) = execute(a[3]);
 		if (isbreak(x)) {	/* turn off break */
-			x = true;
-			return(x);
+			OBJ2LNG(x) = OBJ2LNG(true);
+			return(OBJ2LNG(x));
 		}
 		if (isnext(x) || isexit(x))
-			return(x);
-		tempfree(x);
+			return(OBJ2LNG(x));
+		tempfree(OBJ2LNG(x));
 		tempfree(execute(a[2]));
 	}
 }
 
-obj instat(a, n) node **a;
+lobj instat(a, n) node **a;
 {
 	cell *vp, *arrayp, *cp, **tp;
 	obj x;
@@ -700,19 +719,19 @@ obj instat(a, n) node **a;
 			xfree(vp->sval);
 			vp->sval = tostring(cp->nval);
 			vp->tval = STR;
-			x = execute(a[2]);
+			OBJ2LNG(x) = execute(a[2]);
 			if (isbreak(x)) {
-				x = true;
-				return(x);
+				OBJ2LNG(x) = OBJ2LNG(true);
+				return(OBJ2LNG(x));
 			}
 			if (isnext(x) || isexit(x))
-				return(x);
-			tempfree(x);
+				return(OBJ2LNG(x));
+			tempfree(OBJ2LNG(x));
 		}
 	}
 }
 
-obj jump(a,n) node **a;
+lobj jump(a,n) node **a;
 {
 	obj x;
 
@@ -734,17 +753,17 @@ obj jump(a,n) node **a;
 		x.osub = JCONT;
 		break;
 	}
-	return(x);
+	return(OBJ2LNG(x));
 }
 
-obj fncn(a,n) node **a;
+lobj fncn(a,n) node **a;
 {
 	obj x;
 	awkfloat u;
 	int t;
 
 	t = (int) a[0];
-	x = execute(a[1]);
+	OBJ2LNG(x) = execute(a[1]);
 	if (t == FLENGTH)
 		u = (awkfloat) strlen(getsval(x.optr));
 	else if (t == FLOG)
@@ -757,13 +776,13 @@ obj fncn(a,n) node **a;
 		u = sqrt(getfval(x.optr));
 	else
 		error(FATAL, "illegal function type %d", t);
-	tempfree(x);
-	x = gettemp();
+	tempfree(OBJ2LNG(x));
+	OBJ2LNG(x) = gettemp();
 	setfval(x.optr, u);
-	return(x);
+	return(OBJ2LNG(x));
 }
 
-obj print(a,n) node **a;
+lobj print(a,n) node **a;
 {
 	register node *x;
 	obj y;
@@ -771,9 +790,9 @@ obj print(a,n) node **a;
 
 	s[0] = '\0';
 	for (x=a[0]; x!=NULL; x=x->nnext) {
-		y = execute(x);
+		OBJ2LNG(y) = execute(x);
 		strcat(s, getsval(y.optr));
-		tempfree(y);
+		tempfree(OBJ2LNG(y));
 		if (x->nnext==NULL)
 			strcat(s, *ORS);
 		else
@@ -783,15 +802,15 @@ obj print(a,n) node **a;
 		error(FATAL, "string %.20s ... too long to print", s);
 	if (a[1]==nullstat) {
 		printf("%s", s);
-		return(true);
+		return(OBJ2LNG(true));
 	}
 	redirprint(s, (int)a[1], a[2]);
-	return(false);
+	return(OBJ2LNG(false));
 }
 
-obj nullproc() {}
+lobj nullproc() {}
 
-obj nodetoobj(a) node *a;
+lobj nodetoobj(a) node *a;
 {
 	obj x;
 
@@ -799,7 +818,7 @@ obj nodetoobj(a) node *a;
 	x.otype = OCELL;
 	x.osub = a->subtype;
 	if (isfld(x)) fldbld();
-	return(x);
+	return(OBJ2LNG(x));
 }
 
 redirprint(s, a, b) char *s; node *b;
@@ -807,7 +826,7 @@ redirprint(s, a, b) char *s; node *b;
 	register int i;
 	obj x;
 
-	x = execute(b);
+	OBJ2LNG(x) = execute(b);
 	getsval(x.optr);
 	for (i=0; i<FILENUM; i++)
 		if (strcmp(x.optr->sval, files[i].fname) == 0)
@@ -828,6 +847,8 @@ redirprint(s, a, b) char *s; node *b;
 	files[i].fname = tostring(x.optr->sval);
 doit:
 	fprintf(files[i].fp, "%s", s);
-	tempfree(x);
+	tempfree(OBJ2LNG(x));
 }
 
+#include "proctab.c"
+/*#include "printname.c"*/ /* not required unless debugging can leave out to save 800 bytes */

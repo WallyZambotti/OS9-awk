@@ -1,4 +1,5 @@
-#include "stdio.h"
+#include <stdio.h>
+#include <errno.h>
 #include "awk.def"
 #include "awk.h"
 
@@ -7,12 +8,15 @@ int	svargc;
 char	**svargv, **xargv;
 extern FILE	*yyin;	/* lex input file */
 char	*lexprog;	/* points to program argument if it exists */
-extern	errorflag;	/* non-zero if any syntax errors; set by yyerror */
-
+extern	errorflg;	/* non-zero if any syntax errors; set by yyerror */
+char buf[2];
 int filefd, iflag, symnum, ansfd;
 char *filelist;
 extern int maxsym, errno;
 main(argc, argv) int argc; char *argv[]; {
+	pflinit(); /* CoCo support */
+	pffinit(); /* CoCo support */
+	yyin = stdin;
 	if (argc == 1)
 		error(FATAL, "Usage: awk [-f source | 'cmds'] [files]");
 	if (strcmp(argv[0], "a.out"))
@@ -63,13 +67,13 @@ iloop:
 	if (iflag)
 		msgfiles();
 	yyparse();
-	dprintf("errorflag=%d\n", errorflag, NULL, NULL);
-	if (errorflag)
+	dprintf("errorflg=%d\n", errorflg, NULL, NULL);
+	if (errorflg)
 		exit(0);
 	run();
 	if (iflag)
-		write(ansfd, &errorflag, sizeof(errorflag));
-	else exit(errorflag);
+		write(ansfd, &errorflg, sizeof(errorflg));
+	else exit(errorflg);
 /*sym cleanup should go here , followed by another syminit*/
 	goto iloop;
 }

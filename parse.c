@@ -1,9 +1,10 @@
+#include <stdio.h>
 #include "awk.def"
 #include "awk.h"
-#include "stdio.h"
 node *ALLOC(n)
 {	node *x;
 	x = (node *)malloc(sizeof(node)+n*sizeof(node *));
+	/*fprintf(stderr, "%04x %d\n", x, n);*/
 	if (x == NULL)
 		error(FATAL, "out of space in ALLOC");
 	return(x);

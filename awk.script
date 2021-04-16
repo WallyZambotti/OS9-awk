@@ -1,0 +1,23 @@
+BEGIN{
+    print "Managers Salary Report"
+    print "======================"
+    ts=0
+    cnt=0
+    sm=0
+    lg=0
+}
+/manager/{
+    ts+=$4
+    cnt+=1
+    if ( $4 > lg ) { lg=$4 ; ln=$1 }
+    if ( sm == 0 || $4 < sm ) { sm=$4 ; sn=$1 }
+    print $1,$4
+}
+END{
+    print "----------------------"
+    print "Total Managers",cnt
+    print "Total Salary",ts
+    print "Average Salary",ts/cnt
+    print "Smallest salary",sm,"by",sn
+    print "Largest salary",lg,"by",ln
+}

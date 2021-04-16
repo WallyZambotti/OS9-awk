@@ -38,7 +38,7 @@
 %%
 
 program:
-	  begin pa_stats end	{ if (errorflag==0) winner = stat3(PROGRAM, $1, $2, $3); }
+	  begin pa_stats end	{ if (errorflg==0) winner = stat3(PROGRAM, $1, $2, $3); }
 	| error			{ yyclearin; yyerror("bailing out"); }
 	;
 

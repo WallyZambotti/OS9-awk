@@ -71,9 +71,9 @@ WS	[ \t]
 			}
 		}
 <A>"$"{WS}*	{ RETURN(INDIRECT); }
-<A>NF		{ mustfld=1; yylval = setsymtab(yytext, NULL, 0.0, NUM, symtab); RETURN(VAR); }
+<A>NF		{ mustfld=1; yylval = stsymtab(yytext, NULL, 0.0, NUM, symtab); RETURN(VAR); }
 <A>({D}+("."?){D}*|"."{D}+)((e|E)("+"|-)?{D}+)?	{
-		yylval = setsymtab(yytext, NULL, atof(yytext), CON|NUM, symtab); RETURN(NUMBER); }
+		yylval = stsymtab(yytext, NULL, atof(yytext), CON|NUM, symtab); RETURN(NUMBER); }
 <A>"}"{WS}*\n	{ BEGIN sc; lineno++; RETURN(';'); }
 <A>"}"		{ BEGIN sc; RETURN(';'); }
 <A>;\n		{ lineno++; RETURN(';'); }
@@ -98,7 +98,7 @@ WS	[ \t]
 <A>int		{ yylval = FINT; RETURN(FNCN); }
 <A>exp		{ yylval = FEXP; RETURN(FNCN); }
 <A>sqrt		{ yylval = FSQRT; RETURN(FNCN); }
-<A>{A}{B}*	{ yylval = setsymtab(yytext, tostring(""), 0.0, STR, symtab); RETURN(VAR); }
+<A>{A}{B}*	{ yylval = stsymtab(yytext, tostring(""), 0.0, STR, symtab); RETURN(VAR); }
 <A>\"		{ BEGIN str; clen=0; }
 
 <A>#		{ BEGIN comment; }
@@ -128,7 +128,7 @@ WS	[ \t]
 <reg>\n		{ yyerror("newline in regular expression"); lineno++; BEGIN A; }
 <reg>.		{ yylval = yytext[0]; RETURN(CHAR); }
 
-<str>\"		{ BEGIN A; cbuf[clen]=0; yylval = setsymtab(cbuf, tostring(cbuf), 0.0, CON|STR, symtab); RETURN(STRING); }
+<str>\"		{ BEGIN A; cbuf[clen]=0; yylval = stsymtab(cbuf, tostring(cbuf), 0.0, CON|STR, symtab); RETURN(STRING); }
 <str>\n		{ yyerror("newline in string"); lineno++; BEGIN A; }
 <str>"\\\""	{ cbuf[clen++]='"'; }
 <str,chc>"\\"n	{ cbuf[clen++]='\n'; }

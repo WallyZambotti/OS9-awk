@@ -1,12 +1,12 @@
+#include <stdio.h>
 #include "awk.def"
-#include "stdio.h"
 #include "awk.h"
 
 extern node *op2();
 extern struct fa *cgotofn();
-#define MAXLIN 256
+#define MAXLIN 188 /* 256 CoCo mem fix */
 #define NCHARS 128
-#define NSTATES 256
+#define NSTATES 188 /* 256 Coco mem fix */
 
 #define type(v)	v->nobj
 #define left(v)	v->narg[0]
@@ -87,8 +87,10 @@ node *p;
 {
 	switch(type(p)) {
 		LEAF
-			xfree(foll[(int) left(p)]);
-			xfree(p);
+			if (left(p) != 0 && foll[(int) left(p)] != 0) xfree(foll[(int) left(p)]);
+			foll[(int) left(p)] = 0;
+			if (p != 0) xfree(p);
+			p = 0;
 			break;
 		UNARY
 			freetr(left(p));
@@ -287,7 +289,7 @@ int *add(n) {		/* remember setvec */
 
 struct fa *cgotofn()
 {
-	register i, k;
+	/*register*/ int i, k;
 	register int *ptr;
 	char c;
 	char *p;
@@ -388,7 +390,9 @@ struct fa *cgotofn()
 				case CHAR:
 					k = (int) right(cp);
 					if (isyms[k] == 0 && symbol[k] == 0) {
-						symbol[k] = 1;
+						/* symbol[k] = 1; */
+						char *cp = symbol+k;
+						*cp = 1;
 						ssyms[ssmax++] = k;
 					}
 					break;
@@ -396,7 +400,9 @@ struct fa *cgotofn()
 					for (k=1; k<NCHARS; k++) {
 						if (k != HAT) {
 							if (isyms[k] == 0 && symbol[k] == 0) {
-								symbol[k] = 1;
+								/* symbol[k] = 1; */
+								char *cp = symbol+k;
+								*cp = 1;
 								ssyms[ssmax++] = k;
 							}
 						}
@@ -406,7 +412,9 @@ struct fa *cgotofn()
 					for (p = (char *) right(cp); *p; p++) {
 						if (*p != HAT) {
 							if (isyms[*p] == 0 && symbol[*p] == 0) {
-								symbol[*p] = 1;
+								/* symbol[*p] = 1; */
+								char *cp = symbol+*p;
+								*cp = 1;
 								ssyms[ssmax++] = *p;
 							}
 						}
@@ -416,7 +424,9 @@ struct fa *cgotofn()
 					for (k=1; k<NCHARS; k++) {
 						if (k != HAT && !member(k, (char *) right(cp))) {
 							if (isyms[k] == 0 && symbol[k] == 0) {
-								symbol[k] = 1;
+								/* symbol[k] = 1; */
+								char *cp = symbol+k;
+								*cp = 1;
 								ssyms[ssmax++] = k;
 							}
 						}

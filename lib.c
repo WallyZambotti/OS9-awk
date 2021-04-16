@@ -1,11 +1,11 @@
-#include "stdio.h"
+#include <stdio.h>
 #include "awk.def"
 #include "awk.h"
-#include "ctype.h"
+#include <ctype.h>
 
 FILE	*infile	= NULL;
 char	*file;
-#define	RECSIZE	512
+#define	RECSIZE	256 /* 512 CoCo mem fix */
 char	record[RECSIZE];
 char	fields[RECSIZE];
 
@@ -93,7 +93,7 @@ char *s;
 	for (p=s; *p != '='; p++)
 		;
 	*p++ = 0;
-	q = setsymtab(s, tostring(p), 0.0, STR, symtab);
+	q = stsymtab(s, tostring(p), 0.0, STR, symtab);
 	setsval(q, p);
 	dprintf("command line set %s to |%s|\n", s, p, NULL);
 }
@@ -188,11 +188,11 @@ cell *fieldadr(n)
 	return(&fldtab[n]);
 }
 
-int	errorflag	= 0;
+int	errorflg	= 0;
 
 yyerror(s) char *s; {
 	fprintf(stderr, "awk: %s near line %d\n", s, lineno);
-	errorflag = 2;
+	errorflg = 2;
 }
 
 error(f, s, a1, a2, a3, a4, a5, a6, a7) {
@@ -206,7 +206,7 @@ error(f, s, a1, a2, a3, a4, a5, a6, a7) {
 }
 
 PUTS(s) char *s; {
-	dprintf("%s\n", s, NULL, NULL);
+	fprintf(stderr, "%s\n", s);
 }
 
 #define	MAXEXPON	38	/* maximum exponenet for fp number */
